@@ -63,6 +63,7 @@ header p {
     width: 6px;
     height: 100%;
     transform: translateX(-50%);
+
     background: repeating-linear-gradient(
         to bottom,
         white 0px,
