@@ -1,1 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <title>Adaptive Path Planning - Autonomous Vehicle</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <header>
+        <h1>Adaptive Path Planning & Collision Avoidance</h1>
+        <p>Autonomous Vehicle Simulation for Unstructured Indian Roads</p>
+    </header>
+
+    <main>
+
+        <section class="dashboard">
+
+            <div class="simulation">
+
+                <h2>Road Simulation</h2>
+
+                <div id="road">
+
+                    <div id="car">🚗</div>
+
+                    <div class="obstacle pedestrian">🚶</div>
+                    <div class="obstacle auto">🛺</div>
+                    <div class="obstacle animal">🐄</div>
+
+                    <div id="safePath"></div>
+
+                </div>
+
+            </div>
+
+
+            <aside class="controls">
+
+                <h2>System Status</h2>
+
+                <div class="status">
+                    <p><strong>Vehicle Speed:</strong> <span id="speed">30 km/h</span></p>
+
+                    <p><strong>Objects Detected:</strong> <span id="objects">3</span></p>
+
+                    <p><strong>Collision Risk:</strong> 
+                        <span id="risk">LOW</span>
+                    </p>
+
+                    <p><strong>Planning Status:</strong> 
+                        <span id="planning">ACTIVE</span>
+                    </p>
+
+                    <p><strong>Replanning Count:</strong> 
+                        <span id="replanning">0</span>
+                    </p>
+                </div>
+
+
+                <h2>Select Scenario</h2>
+
+                <button>Village Road</button>
+                <button>Urban Intersection</button>
+                <button>Highway Merge</button>
+                <button>Market Area</button>
+                <button>Sudden Cattle Crossing</button>
+
+            </aside>
+
+        </section>
+
+    </main>
+
+    <footer>
+        <p>Software Simulation Prototype | Autonomous Vehicle Project</p>
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
