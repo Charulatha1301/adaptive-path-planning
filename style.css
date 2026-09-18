@@ -1,1 +1,166 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
+body {
+    font-family: Arial, sans-serif;
+    background: #eef2f5;
+    color: #222;
+}
+
+header {
+    background: #17202a;
+    color: white;
+    text-align: center;
+    padding: 25px;
+}
+
+header h1 {
+    margin-bottom: 8px;
+}
+
+header p {
+    font-size: 16px;
+}
+
+.dashboard {
+    display: flex;
+    gap: 25px;
+    padding: 25px;
+    max-width: 1300px;
+    margin: auto;
+}
+
+.simulation {
+    flex: 1;
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.simulation h2 {
+    margin-bottom: 15px;
+}
+
+#road {
+    position: relative;
+    height: 550px;
+    background: #555;
+    border-radius: 10px;
+    overflow: hidden;
+    border-left: 8px solid #777;
+    border-right: 8px solid #777;
+}
+
+#road::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 6px;
+    height: 100%;
+    transform: translateX(-50%);
+    background: repeating-linear-gradient(
+        to bottom,
+        white 0px,
+        white 40px,
+        transparent 40px,
+        transparent 80px
+    );
+}
+
+#car {
+    position: absolute;
+    left: 25%;
+    bottom: 40px;
+    font-size: 45px;
+    z-index: 5;
+}
+
+.obstacle {
+    position: absolute;
+    font-size: 40px;
+    z-index: 4;
+}
+
+.pedestrian {
+    left: 15%;
+    top: 120px;
+}
+
+.auto {
+    right: 15%;
+    top: 250px;
+}
+
+.animal {
+    left: 42%;
+    top: 390px;
+}
+
+#safePath {
+    position: absolute;
+    left: 25%;
+    bottom: 85px;
+    width: 5px;
+    height: 350px;
+    background: #2ecc71;
+    opacity: 0.7;
+    z-index: 2;
+}
+
+.controls {
+    width: 320px;
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.controls h2 {
+    margin-bottom: 15px;
+    margin-top: 10px;
+}
+
+.status {
+    background: #f4f6f7;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.status p {
+    margin-bottom: 12px;
+}
+
+#risk {
+    font-weight: bold;
+}
+
+#planning {
+    font-weight: bold;
+}
+
+.controls button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 7px;
+    background: #2c3e50;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.controls button:hover {
+    background: #34495e;
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    color: #555;
+}
