@@ -25,16 +25,22 @@ const buttons = document.querySelectorAll(".controls button");
 // ==========================================
 
 let carPosition = 25;
+
+// KEEP ORIGINAL MOVEMENT SPEED
 let carSpeed = 0.15;
-
-let replanningCount = 0;
-
-let currentScenario = "Village Road";
 
 let targetLane = 25;
 
+let replanningCount = 0;
+
 let isAvoiding = false;
-let obstaclePassed = false;
+
+let returningToLane = false;
+
+let stoppedForDanger = false;
+
+let currentScenario = "Village Road";
+
 let lastObstacle = null;
 
 
@@ -85,7 +91,7 @@ function resetObstacles() {
     auto.style.top = "250px";
 
     animal.style.left = "42%";
-    animal.style.top = "390px";
+    animal.style.top = "300px";
 }
 
 
@@ -103,6 +109,7 @@ function selectScenario(scenarioName) {
     objectsDisplay.textContent = scenario.objects;
 
     replanningCount = 0;
+
     replanningDisplay.textContent = "0";
 
     riskDisplay.textContent = "LOW";
@@ -119,7 +126,8 @@ function selectScenario(scenarioName) {
     safePath.style.left = "25%";
 
     isAvoiding = false;
-    obstaclePassed = false;
+    returningToLane = false;
+    stoppedForDanger = false;
     lastObstacle = null;
 
     resetObstacles();
@@ -129,14 +137,16 @@ function selectScenario(scenarioName) {
 
 
 // ==========================================
-// BUTTON EVENTS
+// SCENARIO BUTTONS
 // ==========================================
 
 buttons.forEach(function(button) {
 
     button.addEventListener("click", function() {
 
-        selectScenario(button.textContent.trim());
+        selectScenario(
+            button.textContent.trim()
+        );
 
     });
 
@@ -144,64 +154,85 @@ buttons.forEach(function(button) {
 
 
 // ==========================================
-// GET OBSTACLE POSITION
+// GET OBJECT INFORMATION
 // ==========================================
 
-function getObstacleData(element) {
+function getObstacleData(obstacle) {
 
-    const carRect = car.getBoundingClientRect();
-    const obstacleRect = element.getBoundingClientRect();
+    const carRect =
+        car.getBoundingClientRect();
+
+    const obstacleRect =
+        obstacle.getBoundingClientRect();
 
     const carCenterX =
-        carRect.left + carRect.width / 2;
-
-    const carCenterY =
-        carRect.top + carRect.height / 2;
+        carRect.left +
+        carRect.width / 2;
 
     const obstacleCenterX =
-        obstacleRect.left + obstacleRect.width / 2;
+        obstacleRect.left +
+        obstacleRect.width / 2;
 
-    const obstacleCenterY =
-        obstacleRect.top + obstacleRect.height / 2;
+    // Positive means obstacle is ahead of car
+    const verticalGap =
+        carRect.top -
+        obstacleRect.bottom;
+
+    const horizontalGap =
+        Math.abs(
+            carCenterX -
+            obstacleCenterX
+        );
 
     return {
 
-        horizontalDistance:
-            Math.abs(obstacleCenterX - carCenterX),
+        verticalGap: verticalGap,
 
-        verticalDistance:
-            obstacleCenterY - carCenterY,
+        horizontalGap: horizontalGap,
 
-        obstacleCenterX:
-            obstacleCenterX,
+        carCenterX: carCenterX,
 
-        carCenterX:
-            carCenterX
+        obstacleCenterX: obstacleCenterX,
+
+        obstacleRect: obstacleRect,
+
+        carRect: carRect
     };
 }
 
 
 // ==========================================
-// CHECK IF OBJECT IS IN CAR PATH
+// IS OBSTACLE AHEAD?
 // ==========================================
 
-function isInCarPath(data) {
+function isObstacleAhead(data) {
 
-    const laneWidth = 85;
+    // Obstacle must be ahead of the car
+    if (data.verticalGap < -60) {
+        return false;
+    }
 
-    return (
-        data.horizontalDistance < laneWidth &&
-        data.verticalDistance < 250 &&
-        data.verticalDistance > -60
-    );
+    // Only detect objects within useful
+    // planning distance
+    if (data.verticalGap > 240) {
+        return false;
+    }
+
+    // Check whether obstacle is near
+    // the vehicle's current path
+    if (data.horizontalGap > 105) {
+        return false;
+    }
+
+    return true;
 }
 
 
 // ==========================================
-// FIND CLOSEST OBSTACLE
+// FIND NEAREST OBSTACLE
 // ==========================================
 
-function findDangerousObstacle() {
+function findNearestObstacle() {
 
     const obstacles = [
         pedestrian,
@@ -209,70 +240,44 @@ function findDangerousObstacle() {
         animal
     ];
 
-    let closestObstacle = null;
-    let closestDistance = Infinity;
+    let nearest = null;
+
+    let smallestGap = Infinity;
 
     obstacles.forEach(function(obstacle) {
 
-        const data = getObstacleData(obstacle);
+        const data =
+            getObstacleData(obstacle);
 
-        if (isInCarPath(data)) {
+        if (isObstacleAhead(data)) {
 
             if (
-                data.verticalDistance >= 0 &&
-                data.verticalDistance < closestDistance
+                data.verticalGap <
+                smallestGap
             ) {
 
-                closestDistance =
-                    data.verticalDistance;
+                smallestGap =
+                    data.verticalGap;
 
-                closestObstacle = {
+                nearest = {
+
                     element: obstacle,
+
                     data: data
                 };
             }
         }
     });
 
-    return closestObstacle;
+    return nearest;
 }
 
 
 // ==========================================
-// COLLISION RISK
+// CHECK WHETHER A LANE IS SAFE
 // ==========================================
 
-function calculateRisk() {
-
-    const danger = findDangerousObstacle();
-
-    if (!danger) {
-        return "LOW";
-    }
-
-    const distance =
-        danger.data.verticalDistance;
-
-    if (distance < 70) {
-
-        return "HIGH";
-
-    } else if (distance < 170) {
-
-        return "MEDIUM";
-
-    } else {
-
-        return "LOW";
-    }
-}
-
-
-// ==========================================
-// CHECK SAFE SIDE
-// ==========================================
-
-function isSideSafe(side) {
+function laneIsSafe(lane) {
 
     const obstacles = [
         pedestrian,
@@ -283,49 +288,33 @@ function isSideSafe(side) {
     const roadRect =
         road.getBoundingClientRect();
 
-    let proposedLane;
-
-    if (side === "LEFT") {
-        proposedLane = 15;
-    } else {
-        proposedLane = 55;
-    }
-
     const proposedX =
         roadRect.left +
-        (proposedLane / 100) *
+        (lane / 100) *
         roadRect.width;
 
-    for (let i = 0; i < obstacles.length; i++) {
+    for (
+        let i = 0;
+        i < obstacles.length;
+        i++
+    ) {
 
-        const obstacleRect =
-            obstacles[i].getBoundingClientRect();
+        const data =
+            getObstacleData(
+                obstacles[i]
+            );
 
-        const obstacleCenterX =
-            obstacleRect.left +
-            obstacleRect.width / 2;
+        const distanceFromLane =
+            Math.abs(
+                data.obstacleCenterX -
+                proposedX
+            );
 
-        const obstacleCenterY =
-            obstacleRect.top +
-            obstacleRect.height / 2;
-
-        const carRect =
-            car.getBoundingClientRect();
-
-        const carCenterY =
-            carRect.top +
-            carRect.height / 2;
-
-        const distanceY =
-            obstacleCenterY - carCenterY;
-
-        const distanceX =
-            Math.abs(obstacleCenterX - proposedX);
-
+        // Object is near the proposed lane
         if (
-            distanceY > -80 &&
-            distanceY < 220 &&
-            distanceX < 70
+            data.verticalGap > -80 &&
+            data.verticalGap < 250 &&
+            distanceFromLane < 80
         ) {
 
             return false;
@@ -337,63 +326,74 @@ function isSideSafe(side) {
 
 
 // ==========================================
-// CHOOSE SAFE LANE
+// CHOOSE SAFE SIDE
 // ==========================================
 
 function chooseSafeLane() {
 
     const leftSafe =
-        isSideSafe("LEFT");
+        laneIsSafe(15);
 
     const rightSafe =
-        isSideSafe("RIGHT");
+        laneIsSafe(55);
 
-    if (leftSafe && !rightSafe) {
+    // Only left is safe
+    if (
+        leftSafe &&
+        !rightSafe
+    ) {
 
         return 15;
-
     }
 
-    if (rightSafe && !leftSafe) {
+    // Only right is safe
+    if (
+        rightSafe &&
+        !leftSafe
+    ) {
 
         return 55;
-
     }
 
-    if (leftSafe && rightSafe) {
+    // Both are safe
+    if (
+        leftSafe &&
+        rightSafe
+    ) {
 
+        // Choose nearest side
         if (carPosition <= 25) {
             return 15;
-        } else {
-            return 55;
         }
+
+        return 55;
     }
 
+    // Both sides blocked
     return null;
 }
 
 
 // ==========================================
-// ADAPTIVE REPLANNING
+// START REPLANNING
 // ==========================================
 
-function triggerReplanning() {
+function triggerReplanning(obstacle) {
 
-    if (isAvoiding) {
+    if (
+        isAvoiding ||
+        returningToLane
+    ) {
         return;
     }
 
-    const danger =
-        findDangerousObstacle();
-
-    if (!danger) {
-        return;
-    }
-
-    const newLane =
+    const safeLane =
         chooseSafeLane();
 
-    if (newLane === null) {
+    // Both sides blocked
+    if (safeLane === null) {
+
+        stoppedForDanger = true;
 
         planningDisplay.textContent =
             "WAITING";
@@ -401,13 +401,15 @@ function triggerReplanning() {
         return;
     }
 
+    stoppedForDanger = false;
+
     isAvoiding = true;
 
     lastObstacle =
-        danger.element;
+        obstacle.element;
 
     targetLane =
-        newLane;
+        safeLane;
 
     replanningCount++;
 
@@ -420,12 +422,47 @@ function triggerReplanning() {
     planningDisplay.textContent =
         "REPLANNING";
 
-    console.log("Obstacle detected");
+    console.log(
+        "Obstacle detected."
+    );
 
     console.log(
-        "New safe lane:",
+        "Safe path selected:",
         targetLane + "%"
     );
+}
+
+
+// ==========================================
+// CALCULATE COLLISION RISK
+// ==========================================
+
+function calculateRisk() {
+
+    const obstacle =
+        findNearestObstacle();
+
+    if (!obstacle) {
+
+        return "LOW";
+    }
+
+    const gap =
+        obstacle.data.verticalGap;
+
+    // Very close
+    if (gap < 65) {
+
+        return "HIGH";
+    }
+
+    // Planning distance
+    if (gap < 160) {
+
+        return "MEDIUM";
+    }
+
+    return "LOW";
 }
 
 
@@ -435,30 +472,45 @@ function triggerReplanning() {
 
 function updateRisk() {
 
+    const obstacle =
+        findNearestObstacle();
+
     const risk =
         calculateRisk();
 
     riskDisplay.textContent =
         risk;
 
+
     if (risk === "HIGH") {
 
         riskDisplay.style.color =
             "red";
 
-        if (!isAvoiding) {
-            triggerReplanning();
+        if (obstacle) {
+
+            triggerReplanning(
+                obstacle
+            );
         }
 
-        if (isAvoiding) {
+        if (stoppedForDanger) {
+
             planningDisplay.textContent =
-                "REPLANNING";
+                "WAITING";
         }
 
     } else if (risk === "MEDIUM") {
 
         riskDisplay.style.color =
             "orange";
+
+        if (obstacle) {
+
+            triggerReplanning(
+                obstacle
+            );
+        }
 
         if (isAvoiding) {
 
@@ -476,7 +528,10 @@ function updateRisk() {
         riskDisplay.style.color =
             "green";
 
-        if (!isAvoiding) {
+        if (
+            !isAvoiding &&
+            !returningToLane
+        ) {
 
             planningDisplay.textContent =
                 "ACTIVE";
@@ -486,12 +541,15 @@ function updateRisk() {
 
 
 // ==========================================
-// MOVE SURROUNDING OBJECTS
+// MOVE OBSTACLES
 // ==========================================
 
 function moveObstacles() {
 
-    // Pedestrian crossing the road
+    // ------------------------------
+    // PEDESTRIAN
+    // ------------------------------
+
     let pedestrianLeft =
         parseFloat(
             window.getComputedStyle(
@@ -501,7 +559,10 @@ function moveObstacles() {
 
     pedestrianLeft += 0.05;
 
-    if (pedestrianLeft > 75) {
+    if (
+        pedestrianLeft > 78
+    ) {
+
         pedestrianLeft = 5;
     }
 
@@ -509,15 +570,23 @@ function moveObstacles() {
         pedestrianLeft + "%";
 
 
-    // Auto moving forward
+    // ------------------------------
+    // AUTO
+    // ------------------------------
+
     let autoTop =
         parseFloat(
-            window.getComputedStyle(auto).top
+            window.getComputedStyle(
+                auto
+            ).top
         );
 
     autoTop += 0.08;
 
-    if (autoTop > 520) {
+    if (
+        autoTop > 520
+    ) {
+
         autoTop = 100;
     }
 
@@ -525,7 +594,10 @@ function moveObstacles() {
         autoTop + "px";
 
 
-    // Cattle crossing
+    // ------------------------------
+    // CATTLE CROSSING
+    // ------------------------------
+
     let animalLeft =
         parseFloat(
             window.getComputedStyle(
@@ -533,10 +605,13 @@ function moveObstacles() {
             ).left
         );
 
-    animalLeft += 0.10;
+    animalLeft += 0.08;
 
-    if (animalLeft > 75) {
-        animalLeft = 25;
+    if (
+        animalLeft > 78
+    ) {
+
+        animalLeft = 8;
     }
 
     animal.style.left =
@@ -545,15 +620,18 @@ function moveObstacles() {
 
 
 // ==========================================
-// SMOOTH STEERING
+// SMOOTH CAR STEERING
 // ==========================================
 
 function steerVehicle() {
 
     const difference =
-        targetLane - carPosition;
+        targetLane -
+        carPosition;
 
-    if (Math.abs(difference) < 0.15) {
+    if (
+        Math.abs(difference) < 0.12
+    ) {
 
         carPosition =
             targetLane;
@@ -573,12 +651,15 @@ function steerVehicle() {
 
 
 // ==========================================
-// CHECK IF OBSTACLE PASSED
+// CHECK IF OBSTACLE IS PASSED
 // ==========================================
 
 function checkObstaclePassed() {
 
-    if (!isAvoiding || !lastObstacle) {
+    if (
+        !isAvoiding ||
+        !lastObstacle
+    ) {
         return;
     }
 
@@ -588,15 +669,17 @@ function checkObstaclePassed() {
     const obstacleRect =
         lastObstacle.getBoundingClientRect();
 
-    const distance =
-        obstacleRect.top -
-        carRect.bottom;
+    // Car has moved above the obstacle
+    if (
+        obstacleRect.top >
+        carRect.bottom + 20
+    ) {
 
-    if (distance < -40) {
+        returningToLane = true;
+
+        isAvoiding = false;
 
         targetLane = 25;
-
-        obstaclePassed = true;
 
         planningDisplay.textContent =
             "RETURNING TO LANE";
@@ -607,21 +690,26 @@ function checkObstaclePassed() {
 
 
 // ==========================================
-// RETURN TO ORIGINAL LANE
+// CHECK RETURN TO ORIGINAL LANE
 // ==========================================
 
 function checkReturnToLane() {
 
+    if (!returningToLane) {
+        return;
+    }
+
     if (
-        obstaclePassed &&
-        Math.abs(carPosition - 25) < 0.5
+        Math.abs(
+            carPosition - 25
+        ) < 0.5
     ) {
 
         carPosition = 25;
+
         targetLane = 25;
 
-        isAvoiding = false;
-        obstaclePassed = false;
+        returningToLane = false;
 
         planningDisplay.textContent =
             "ACTIVE";
@@ -640,21 +728,82 @@ function moveVehicle() {
 
     let newBottom =
         parseFloat(
-            window.getComputedStyle(car).bottom
+            window.getComputedStyle(
+                car
+            ).bottom
         );
 
-    // Original movement speed
-    newBottom += carSpeed;
+    // ----------------------------------
+    // NORMAL MOVEMENT
+    // ----------------------------------
 
-    if (newBottom > road.clientHeight) {
+    let currentSpeed =
+        carSpeed;
+
+
+    // ----------------------------------
+    // STOP ONLY WHEN BOTH SIDES BLOCKED
+    // ----------------------------------
+
+    if (stoppedForDanger) {
+
+        currentSpeed = 0;
+
+        // Check again whether a safe
+        // side has become available
+        const safeLane =
+            chooseSafeLane();
+
+        if (
+            safeLane !== null
+        ) {
+
+            stoppedForDanger = false;
+
+            targetLane =
+                safeLane;
+
+            isAvoiding = true;
+
+            replanningCount++;
+
+            replanningDisplay.textContent =
+                replanningCount;
+
+            planningDisplay.textContent =
+                "REPLANNING";
+
+            safePath.style.left =
+                targetLane + "%";
+        }
+    }
+
+
+    newBottom +=
+        currentSpeed;
+
+
+    // ----------------------------------
+    // RESET AFTER REACHING TOP
+    // ----------------------------------
+
+    if (
+        newBottom >
+        road.clientHeight
+    ) {
 
         newBottom = 40;
 
         carPosition = 25;
+
         targetLane = 25;
 
         isAvoiding = false;
-        obstaclePassed = false;
+
+        returningToLane = false;
+
+        stoppedForDanger = false;
+
         lastObstacle = null;
 
         safePath.style.left =
@@ -670,8 +819,14 @@ function moveVehicle() {
             "green";
     }
 
+
     car.style.bottom =
         newBottom + "px";
+
+
+    // ----------------------------------
+    // ENVIRONMENT
+    // ----------------------------------
 
     moveObstacles();
 
@@ -682,6 +837,7 @@ function moveVehicle() {
     checkObstaclePassed();
 
     checkReturnToLane();
+
 
     requestAnimationFrame(
         moveVehicle
